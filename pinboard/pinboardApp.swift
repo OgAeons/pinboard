@@ -1,17 +1,22 @@
 import SwiftUI
 import AppKit
 
-// model for clipboard items
-struct ClipboardItem: Identifiable {
+// Model for clipboard items
+struct ClipboardItem: Identifiable, Equatable {
     let id = UUID()
     let content: String
+    
+    static func == (lhs: ClipboardItem, rhs: ClipboardItem) -> Bool {
+        return lhs.content == rhs.content
+    }
 }
 
-// clipboard manager to observe changes
+// Clipboard manager to monitor changes
 class ClipboardManager: ObservableObject {
     @Published var items: [ClipboardItem] = []
     private var changeCount: Int = NSPasteboard.general.changeCount
     private var timer: Timer?
+    private var lastCopiedByApp: String? = nil
     
     init() {
         startMonitoring()
@@ -23,11 +28,20 @@ class ClipboardManager: ObservableObject {
             if pb.changeCount != self.changeCount {
                 self.changeCount = pb.changeCount
                 if let copiedText = pb.string(forType: .string) {
-                    DispatchQueue.main.async {
-                        self.items.insert(ClipboardItem(content: copiedText), at: 0)
-                        // keep only the last 50 items
-                        if self.items.count > 50 {
-                            self.items.removeLast()
+                    // Avoid re-adding if it was copied by our app
+                    if copiedText != self.lastCopiedByApp {
+                        DispatchQueue.main.async {
+                            // Always move it to the top instead of duplicating
+                            if let index = self.items.firstIndex(where: { $0.content == copiedText }) {
+                                let existingItem = self.items.remove(at: index)
+                                self.items.insert(existingItem, at: 0)
+                            } else {
+                                self.items.insert(ClipboardItem(content: copiedText), at: 0)
+                            }
+                            // Keep only the last 50 items
+                            if self.items.count > 50 {
+                                self.items.removeLast()
+                            }
                         }
                     }
                 }
@@ -39,18 +53,18 @@ class ClipboardManager: ObservableObject {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
+        self.lastCopiedByApp = text
     }
 }
 
-
+// Main app entry
 @main
 struct PinboardApp: App {
     @StateObject private var clipboardManager = ClipboardManager()
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {
-        // hide default settings window
-        Settings { EmptyView() }
+        Settings { EmptyView() } // Hide default settings window
     }
 }
 
@@ -60,7 +74,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var popover: NSPopover!
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let contentView = ContentView().environmentObject(ClipboardManager())
+        let clipboardManager = ClipboardManager()
+        let contentView = ContentView().environmentObject(clipboardManager)
         
         popover = NSPopover()
         popover.contentSize = NSSize(width: 300, height: 400)
@@ -96,14 +111,19 @@ struct ContentView: View {
                 .padding([.top, .leading, .trailing])
             Divider()
             List(clipboardManager.items) { item in
-                Button(action: {
-                    clipboardManager.copyToClipboard(item.content)
-                }) {
+                HStack {
                     Text(item.content)
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .onTapGesture {
+                            clipboardManager.copyToClipboard(item.content)
+                        }
+                    Spacer()
+                    Button("Copy") {
+                        clipboardManager.copyToClipboard(item.content)
+                    }
+                    .buttonStyle(BorderlessButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
         }
         .frame(minWidth: 300, minHeight: 400)

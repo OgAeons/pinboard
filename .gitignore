@@ -1,0 +1,43 @@
+# Xcode
+DerivedData/
+build/
+*.xcworkspace
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Swift Package Manager
+/.build
+# Xcode
+DerivedData/
+build/
+*.xcworkspace
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Swift Package Manager
+/.build
+# Xcode
+DerivedData/
+build/
+*.xcworkspace
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Swift Package Manager
+/.build
+/Packages
+/*.xcodeproj/project.xcworkspace
+.swiftpm/
+
+# Cocoapods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# macOS files
+.DS_Store
+
